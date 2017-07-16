@@ -1,0 +1,16 @@
+version: '2'
+
+services:
+  # https://www.kinamo.fr/fr/support/faq/faire-le-setup-d-un-environnement-de-developpement-avec-docker-compose
+  mysql:
+    image: mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=dejavu
+      - MYSQL_DATABASE=dejavu
+
+  dejavu:
+    image: dejavu:debian
+    build:
+      context: ./docker
+    links:
+      - mysql      
