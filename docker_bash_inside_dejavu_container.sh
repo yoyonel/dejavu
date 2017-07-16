@@ -10,7 +10,7 @@ docker run \
 	--link dejavu-mysql:mysql \
 	--entrypoint="bash" \
 	-u 0 \
-	-v $PWD:/home/dejavu/mount \
+	-v $PWD:/home/dejavu \
 	-e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
 	dejavu:debian
