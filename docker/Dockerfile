@@ -19,7 +19,27 @@ RUN apt-get install -y \
 			python-mysqldb \
 			python-tk
 
+# Installation de ZSH
+ENV TERM xterm-256color
+
+# url: https://hub.docker.com/r/bwithem/oh-my-zsh-tmux/~/dockerfile/
+RUN apt-get install -y \
+			git \
+			curl \
+			zsh tmux
+
+################## BEGIN INSTALLATION ######################
+RUN git clone git://github.com/bwithem/oh-my-zsh.git ~/.oh-my-zsh \
+    && cp ~/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc \
+    && chsh -s /bin/zsh
+
+
+RUN pip install ipython
+
+
 # https://stackoverflow.com/questions/27701930/add-user-to-docker-container
 RUN useradd -ms /bin/bash dejavu
 USER dejavu
 WORKDIR /home/dejavu
+
+ENTRYPOINT ["zsh"]

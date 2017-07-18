@@ -8,7 +8,6 @@ xhost +
 docker run \
 	-it --rm \
 	--link dejavu-mysql:mysql \
-	--entrypoint="bash" \
 	-u 0 \
 	-v $PWD:/home/dejavu \
 	-e DISPLAY=$DISPLAY \
