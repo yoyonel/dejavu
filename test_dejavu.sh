@@ -2,6 +2,7 @@
 ### Dejavu example testing script ###
 #####################################
 
+set -e 
 ###########
 # Clear out previous results
 rm -rf ./results ./temp_audio
@@ -23,3 +24,5 @@ python run_tests.py \
 	--seed 42 \
 	--results ./results \
 	./mp3
+
+set +e 

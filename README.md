@@ -309,3 +309,20 @@ wav | 1885
 fingerprints | 377
 
 There's a pretty direct trade-off between the necessary record time and the amount of storage needed. Adjusting the amplitude threshold for peaks and the fan value for fingerprinting will add more fingerprints and bolster the accuracy at the expense of more space.
+
+# Docker
+
+Probleme avec docker-compose, il faut trouver ou utiliser un mécanisme pour synchroniser les services "db" et "dejavu" pour que DejaVu attende le lancement de la base de donnée.
+
+Normalement mise à part cette synchro, ça devrait être bon !
+
+## Docker: Tests DejaVu
+
+- Database: MariaDB
+- Tests:
+ - Insertion des songs/fingerprints audio dans la base
+ - Découpage des audios en parcelles de quelques secondes
+ - Requests pour reconnaissances: find song, find time start
+- Utilisation de MyCli pour regarder le contenu de la base
+
+[![asciicast](https://asciinema.org/a/giakqU2XzLxvoZpX9BBvVB1sG.png)](https://asciinema.org/a/giakqU2XzLxvoZpX9BBvVB1sG)

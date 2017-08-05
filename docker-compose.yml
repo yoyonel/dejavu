@@ -2,15 +2,41 @@ version: '2'
 
 services:
   # https://www.kinamo.fr/fr/support/faq/faire-le-setup-d-un-environnement-de-developpement-avec-docker-compose
-  mysql:
-    image: mysql
+
+  # mysql:
+  #   image: mysql
+  #   environment:
+  #     - MYSQL_ROOT_PASSWORD=dejavu
+  #     - MYSQL_DATABASE=dejavu
+  #   volumes:
+  #     - ./database:/var/lib/mysql
+
+  mariadb:
+    image: mariadb:latest
     environment:
       - MYSQL_ROOT_PASSWORD=dejavu
       - MYSQL_DATABASE=dejavu
+    volumes:
+      - ./mariadb:/var/lib/mysql
 
   dejavu:
-    image: dejavu:debian
     build:
       context: ./docker
+    # links:
+    #   - mysql:mysql
+    # depends_on:
+    #   - "mysql"
     links:
-      - mysql      
+      - mariadb:mysql
+    depends_on:
+      - "mariadb"
+    volumes:
+      - /home/atty/Prog/Holimetrix/dejavu:/home/dejavu
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      # - DISPLAY=$DISPLAY
+        - DISPLAY=:0.0
+    # environment: 
+    #   - USER=1000
+    entrypoint: bash -c "./test_dejavu.sh"
+    # entrypoint: ["/wait-for-it.sh", "mysql", "bash", "-c", '/home/dejavu/test_dejavu.sh"']
