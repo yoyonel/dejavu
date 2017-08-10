@@ -29,6 +29,12 @@ RUN apt-get update && \
 ADD test_dejavu.sh /home/dejavu/test_dejavu.sh
 RUN chmod +x /home/dejavu/test_dejavu.sh
 
+RUN apt-get update && \
+	apt-get install -y \
+			git
+RUN git clone --depth=1 https://github.com/Bash-it/bash-it.git ~/.bash_it &&\
+	~/.bash_it/install.sh --silent
+
 # https://stackoverflow.com/questions/27701930/add-user-to-docker-container
 RUN useradd -ms /bin/bash dejavu
 USER dejavu
