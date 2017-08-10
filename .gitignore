@@ -1,3 +1,7 @@
+mariadb/
+
+.cache/
+
 results/
 
 database/
