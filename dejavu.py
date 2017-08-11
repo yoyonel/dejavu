@@ -17,7 +17,7 @@ DEFAULT_CONFIG_FILE = "dejavu.cnf.SAMPLE"
 
 
 def init(configpath):
-    """ 
+    """
     Load config from a JSON file
     """
     try:

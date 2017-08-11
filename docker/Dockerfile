@@ -15,7 +15,8 @@ RUN pip install --upgrade pip && \
 
 # https://stackoverflow.com/questions/5178292/pip-install-mysql-python-fails-with-environmenterror-mysql-config-not-found
 # 
-RUN apt-get install -y \
+RUN apt-get update && \
+	apt-get install -y \
 			python-mysqldb \
 			python-tk
 
@@ -25,21 +26,25 @@ ENV TERM xterm-256color
 # url: https://hub.docker.com/r/bwithem/oh-my-zsh-tmux/~/dockerfile/
 RUN apt-get install -y \
 			git \
-			curl \
-			zsh tmux
-
-################## BEGIN INSTALLATION ######################
-RUN git clone git://github.com/bwithem/oh-my-zsh.git ~/.oh-my-zsh \
-    && cp ~/.oh-my-zsh/templates/zshrc.zsh-template ~/.zshrc \
-    && chsh -s /bin/zsh
-
+			curl
 
 RUN pip install ipython
 
+ADD wait-for-it.sh /wait-for-it.sh
+RUN chmod +x /wait-for-it.sh
+
+RUN apt-get update && \
+	apt-get install -y \
+		mysql-client
+
+ADD test_dejavu.sh /home/dejavu/test_dejavu.sh
+RUN chmod +x /home/dejavu/test_dejavu.sh
+
+RUN git clone --depth=1 https://github.com/Bash-it/bash-it.git ~/.bash_it &&\
+	~/.bash_it/install.sh --silent
 
 # https://stackoverflow.com/questions/27701930/add-user-to-docker-container
 RUN useradd -ms /bin/bash dejavu
 USER dejavu
-WORKDIR /home/dejavu
 
-ENTRYPOINT ["zsh"]
+WORKDIR /home/dejavu
