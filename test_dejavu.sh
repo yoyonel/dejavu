@@ -1,8 +1,10 @@
+#!/usr/bin/env bash
 #####################################
 ### Dejavu example testing script ###
 #####################################
 
 set -e 
+
 ###########
 # Clear out previous results
 rm -rf ./results ./temp_audio
@@ -25,4 +27,6 @@ python run_tests.py \
 	--results ./results \
 	./mp3
 
-set +e 
+set +e
+
+reset

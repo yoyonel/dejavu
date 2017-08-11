@@ -2,9 +2,13 @@ from dejavu.database import get_database, Database
 import dejavu.decoder as decoder
 import fingerprint
 import multiprocessing
+import numpy as np
 import os
 import traceback
+import subprocess
 import sys
+import tqdm
+from dejavu.logger import logger
 
 
 class Dejavu(object):
@@ -15,6 +19,8 @@ class Dejavu(object):
     MATCH_TIME = 'match_time'
     OFFSET = 'offset'
     OFFSET_SECS = 'offset_seconds'
+
+    EXTENSIONS_FOR_AUDIO = ('.mp3', '.wav')
 
     def __init__(self, config):
         super(Dejavu, self).__init__()
@@ -58,7 +64,7 @@ class Dejavu(object):
 
             # don't refingerprint already fingerprinted files
             if decoder.unique_hash(filename) in self.songhashes_set:
-                print "%s already fingerprinted, continuing..." % filename
+                logger.debug("%s already fingerprinted, continuing..." % filename)
                 continue
 
             filenames_to_fingerprint.append(filename)
@@ -80,7 +86,7 @@ class Dejavu(object):
             except StopIteration:
                 break
             except:
-                print("Failed fingerprinting")
+                logger.error("Failed fingerprinting")
                 # Print traceback because we can't reraise it here
                 traceback.print_exc(file=sys.stdout)
             else:
@@ -99,7 +105,7 @@ class Dejavu(object):
         song_name = song_name or songname
         # don't refingerprint already fingerprinted files
         if song_hash in self.songhashes_set:
-            print "%s already fingerprinted, continuing..." % song_name
+            logger.debug("%s already fingerprinted, continuing..." % song_name)
         else:
             song_name, hashes, file_hash = _fingerprint_worker(
                 filepath,
@@ -167,6 +173,29 @@ class Dejavu(object):
         return r.recognize(*options, **kwoptions)
 
 
+def _is_media(filename, search_pattern):
+    """
+
+    :param filename:
+    :param search_pattern:
+    :return:
+
+    """
+    # https://stackoverflow.com/questions/13332268/python-subprocess-command-with-pipe
+    cmd = "ffprobe -v error -show_streams {} | grep codec_type".format(filename)
+    ps = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    output = ps.communicate()[0].split("\n")
+    return search_pattern in output
+
+
+def _is_audio_media(filename):
+    return _is_media(filename, 'codec_type=audio')
+
+
+def _is_video_media(filename):
+    return _is_media(filename, 'codec_type=video')
+
+
 def _fingerprint_worker(filename, limit=None, song_name=None):
     # Pool.imap sends arguments as tuples so we have to unpack
     # them ourself.
@@ -175,23 +204,45 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
     except ValueError:
         pass
 
+    # extract songname extension
     songname, extension = os.path.splitext(os.path.basename(filename))
     song_name = song_name or songname
-    channels, Fs, file_hash = decoder.read(filename, limit)
-    result = set()
-    channel_amount = len(channels)
+    logger.debug("songname, extension: '{}', '{}'".format(songname, extension))
 
-    for channeln, channel in enumerate(channels):
-        # TODO: Remove prints or change them into optional logging.
-        print("Fingerprinting channel %d/%d for %s" % (channeln + 1,
-                                                       channel_amount,
-                                                       filename))
-        hashes = fingerprint.fingerprint(channel, Fs=Fs)
-        print("Finished channel %d/%d for %s" % (channeln + 1, channel_amount,
-                                                 filename))
+    if _is_video_media(filename):
+        logger.debug("{}{} is a video file".format(song_name, extension))
+
+        # use the Decoder
+        frames, fps, file_hash = decoder.read_video(filename, limit)
+
+        result = set()
+
+        hashes = fingerprint.generate_hashes_for_video(frames)
         result |= set(hashes)
 
-    return song_name, result, file_hash
+        # logger.debug("result: {}".format(result))
+
+        return song_name, result, file_hash
+    elif _is_audio_media(filename):
+        logger.debug("{}{} is a audio file".format(song_name, extension))
+
+        # use the Decoder
+        frames, fps, file_hash = decoder.read(filename, limit)
+
+        result = set()
+        channel_amount = len(frames)
+
+        for channeln, channel in enumerate(frames):
+            logger.debug("Fingerprinting channel %d/%d for %s" % (channeln + 1,
+                                                                  channel_amount,
+                                                                  filename))
+            hashes = fingerprint.fingerprint(channel, Fs=fps)
+            logger.debug("Finished channel %d/%d for %s" % (channeln + 1, channel_amount, filename))
+            result |= set(hashes)
+
+        # logger.debug("result: {}".format(result))
+
+        return song_name, result, file_hash
 
 
 def chunkify(lst, n):

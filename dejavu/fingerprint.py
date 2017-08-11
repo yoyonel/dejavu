@@ -1,3 +1,5 @@
+import imagehash
+from PIL import Image
 import numpy as np
 import matplotlib.mlab as mlab
 import matplotlib.pyplot as plt
@@ -182,6 +184,18 @@ def generate_hashes(peaks, fan_value=DEFAULT_FAN_VALUE):
                     h = hashlib.sha1(
                         "%s|%s|%s" % (str(freq1), str(freq2), str(t_delta)))
                     yield (h.hexdigest()[0:FINGERPRINT_REDUCTION], t1)
+
+
+def generate_hashes_for_video(frames):
+    """
+
+    :param frames:
+    :return:
+    """
+    for i, frame in enumerate(frames):
+        img = Image.fromarray(np.uint8(frame))
+        hash = imagehash.phash(img)
+        yield (hash, i)
 
 
 def generate_hashes_with_plots(peaks, fan_value=DEFAULT_FAN_VALUE):
