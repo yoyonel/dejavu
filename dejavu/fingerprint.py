@@ -193,6 +193,7 @@ def generate_hashes_for_video(frames):
     :return:
     """
     for i, frame in enumerate(frames):
+        # https://stackoverflow.com/questions/10965417/how-to-convert-numpy-array-to-pil-image-applying-matplotlib-colormap
         img = Image.fromarray(np.uint8(frame))
         hash = imagehash.phash(img)
         yield (hash, i)

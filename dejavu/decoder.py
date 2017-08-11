@@ -80,8 +80,10 @@ def read(filename, limit=None):
 
 
 class IterVideo:
+    # https://stackoverflow.com/questions/19151/build-a-basic-python-iterator
     def __init__(self, cap, limit=None):
         self.current = 0
+        # http://www.pyimagesearch.com/2017/01/09/count-the-total-number-of-frames-in-a-video-with-opencv-and-python/
         self.high = limit or int(cap.get(cv2.CAP_PROP_FRAME_COUNT) - 1)
         self.cap = cap
 
@@ -89,6 +91,7 @@ class IterVideo:
         return self
 
     def next(self):     # Python 3: def __next__(self)
+        # http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_gui/py_video_display/py_video_display.html
         if not self.cap.isOpened() or self.current > self.high:
             raise StopIteration
         else:
