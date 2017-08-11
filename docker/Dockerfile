@@ -1,4 +1,5 @@
-FROM jrottenberg/ffmpeg:ubuntu
+# FROM jrottenberg/ffmpeg:ubuntu
+FROM latty/screenpulse/ffmpeg:cu-3.3
 
 RUN apt-get update && \
 	apt-get install -y \

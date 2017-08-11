@@ -98,7 +98,7 @@ def generate_test_files(src, dest, nseconds, fmts=[".mp3", ".wav"], padding=10):
                 "-ss", "%d" % starttime,
                 '-t', "%d" % nseconds,
                 "-i", audiosource,
-                # "-max_muxing_queue_size", "400",
+                "-max_muxing_queue_size", "400",
                 test_file_name])
 
 
