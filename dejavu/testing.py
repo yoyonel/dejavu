@@ -92,11 +92,13 @@ def generate_test_files(src, dest, nseconds, fmts=[".mp3", ".wav"], padding=10):
                 os.path.join(dest, filename), starttime,
                 nseconds, extension.replace(".", ""))
 
+            # https://trac.ffmpeg.org/ticket/6375
             subprocess.check_output([
                 "ffmpeg", "-y",
                 "-ss", "%d" % starttime,
                 '-t', "%d" % nseconds,
                 "-i", audiosource,
+                # "-max_muxing_queue_size", "400",
                 test_file_name])
 
 

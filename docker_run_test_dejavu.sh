@@ -7,9 +7,12 @@ set -e
 
 xhost +
 
+# DOCKER_USER=root
+DOCKER_USER=0
+
 docker run \
     -it --rm \
-    -u 0 \
+    -u $DOCKER_USER \
     -v $PWD:/home/dejavu \
     -e DISPLAY=$DISPLAY \
 	-v /tmp/.X11-unix:/tmp/.X11-unix \
