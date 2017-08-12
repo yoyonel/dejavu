@@ -1,5 +1,7 @@
 # FROM jrottenberg/ffmpeg:ubuntu
-FROM latty/screenpulse/ffmpeg:cu-3.3
+# FROM latty/screenpulse/ffmpeg:cu-3.3
+# FROM latty/opencv-3.1.0:ubuntu
+FROM yoyonel/ffmpeg:opencv
 
 RUN apt-get update && \
 	apt-get install -y \

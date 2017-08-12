@@ -50,6 +50,7 @@ if __name__ == '__main__':
                              'Usage: \n'
                              '--recognize mic number_of_seconds \n'
                              '--recognize file path/to/file \n')
+    parser.add_argument('--empty_database', action='store_true', default=False)
     args = parser.parse_args()
 
     if not args.fingerprint and not args.recognize:
@@ -62,6 +63,8 @@ if __name__ == '__main__':
         # print "Using default config file: %s" % (config_file)
 
     djv = init(config_file)
+    if args.empty_database:
+        djv.db.empty()
     if args.fingerprint:
         # Fingerprint all files in a directory
         if len(args.fingerprint) == 2:

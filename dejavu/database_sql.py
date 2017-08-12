@@ -6,6 +6,7 @@ import MySQLdb as mysql
 from MySQLdb.cursors import DictCursor
 
 from dejavu.database import Database
+from dejavu.logger import logger
 
 
 class SQLDatabase(Database):
@@ -167,6 +168,7 @@ class SQLDatabase(Database):
         .. warning:
             This will result in a loss of data
         """
+        logger.debug("empty database ...")
         with self.cursor() as cur:
             cur.execute(self.DROP_FINGERPRINTS)
             cur.execute(self.DROP_SONGS)
@@ -274,6 +276,7 @@ class SQLDatabase(Database):
 
         with self.cursor() as cur:
             for split_values in grouper(values, 1000):
+                logger.debug("split_values: {}".format(split_values))
                 cur.executemany(self.INSERT_FINGERPRINT, split_values)
 
     def return_matches(self, hashes):
@@ -284,20 +287,27 @@ class SQLDatabase(Database):
         # Create a dictionary of hash => offset pairs for later lookups
         mapper = {}
         for hash, offset in hashes:
+            # logger.debug("hash.upper(): {}".format(hash.upper()))
             mapper[hash.upper()] = offset
 
         # Get an iteratable of all the hashes we need
         values = mapper.keys()
+        # logger.debug("len(mapper.keys()): {}".format(len(mapper.keys())))
 
         with self.cursor() as cur:
             for split_values in grouper(values, 1000):
+                # logger.debug("split_values: {}".format(split_values))
+
                 # Create our IN part of the query
                 query = self.SELECT_MULTIPLE
                 query = query % ', '.join(['UNHEX(%s)'] * len(split_values))
 
+                # logger.debug("query: {}".format(query))
+                # logger.debug("split_values: {}".format(split_values))
                 cur.execute(query, split_values)
 
                 for hash, sid, offset in cur:
+                    # logger.debug("hash: {}".format(hash, offset))
                     # (sid, db_offset - song_sampled_offset)
                     yield (sid, offset - mapper[hash])
 

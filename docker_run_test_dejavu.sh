@@ -1,6 +1,8 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 set -e 
+
+source set_env.sh
 
 # Launch Database container
 ./docker_db.sh
@@ -13,12 +15,11 @@ DOCKER_USER=0
 docker run \
     -it --rm \
     -u $DOCKER_USER \
+    $DOCKER_SHARE_DISPLAY \
     -v $PWD:/home/dejavu \
-    -e DISPLAY=$DISPLAY \
-	-v /tmp/.X11-unix:/tmp/.X11-unix \
-	--link dejavu-mysql:mysql \
+	--link $DEJAVU_DOCKER_DB_NAME:mysql \
     --entrypoint="/bin/bash" \
-    dejavu:debian
+    ${DEJAVU_DOCKER_IMAGE}
 
 xhost -
 

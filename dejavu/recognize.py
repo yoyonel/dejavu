@@ -3,6 +3,8 @@ import dejavu.decoder as decoder
 import numpy as np
 import pyaudio
 import time
+from dejavu import _is_audio_media, _is_video_media
+from dejavu.logger import logger
 
 
 class BaseRecognizer(object):
@@ -17,6 +19,13 @@ class BaseRecognizer(object):
             matches.extend(self.dejavu.find_matches(d, Fs=self.Fs))
         return self.dejavu.align_matches(matches)
 
+    def _recognize_for_video(self, data):
+        matches = []
+        # for d in data:
+        # logger.debug("d: {}".format(d))
+        matches.extend(self.dejavu.find_matches_for_video(data))
+        return self.dejavu.align_matches(matches)
+
     def recognize(self):
         pass  # base class does nothing
 
@@ -26,16 +35,30 @@ class FileRecognizer(BaseRecognizer):
         super(FileRecognizer, self).__init__(dejavu)
 
     def recognize_file(self, filename):
-        frames, self.Fs, file_hash = decoder.read(filename, self.dejavu.limit)
+        if _is_video_media(filename):
+            logger.warning("Video recognition not supported (yet) !")
+            # use the Decoder
+            frames, fps, file_hash = decoder.read_video(filename, self.dejavu.limit)
 
-        t = time.time()
-        match = self._recognize(*frames)
-        t = time.time() - t
+            t = time.time()
+            match = self._recognize_for_video(frames)
+            t = time.time() - t
 
-        if match:
-            match['match_time'] = t
+            if match:
+                match['match_time'] = t
 
-        return match
+            return match
+        elif _is_audio_media(filename):
+            frames, self.Fs, file_hash = decoder.read(filename, self.dejavu.limit)
+
+            t = time.time()
+            match = self._recognize(*frames)
+            t = time.time() - t
+
+            if match:
+                match['match_time'] = t
+
+            return match
 
     def recognize(self, filename):
         return self.recognize_file(filename)

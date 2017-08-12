@@ -124,13 +124,10 @@ def read_video(filename, limit=None):
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         frame_rate = fps = cap.get(cv2.CAP_PROP_FPS)
 
-        logger.debug("length: {}".format(length))
-        logger.debug("width: {}".format(width))
-        logger.debug("height: {}".format(height))
-        logger.debug("fps: {}".format(fps))
+        logger.debug("length - width - height - fps: {} - {} - {} - {}".format(length, width, height, fps))
 
         logger.debug("Read video: {} ...".format(filename))
-        for ret, frame in tqdm(IterVideo(cap, limit), total=limit or length):
+        for ret, frame in tqdm(IterVideo(cap, limit), desc='Retrieve frames from video', total=limit or length):
             channels.append(frame)
     except Exception, e:
         logger.error("Exception: {}".format(repr(e)))

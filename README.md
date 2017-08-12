@@ -326,3 +326,23 @@ Normalement mise à part cette synchro, ça devrait être bon !
 - Utilisation de MyCli pour regarder le contenu de la base
 
 [![asciicast](https://asciinema.org/a/giakqU2XzLxvoZpX9BBvVB1sG.png)](https://asciinema.org/a/giakqU2XzLxvoZpX9BBvVB1sG)
+
+### Video
+
+```bash
+2017-08-12 22:16:24 ⌚  ef797bbe9b8d in /home/dejavu
+± |video U:10 ?:1 ✗| → python dejavu.py --recognize file mp4/extract_2002_20170710_172537_v2.mp4 
+[2017-08-12 22:19:29,398][WARNING][recognize.py][recognize_file] Video recognition not supported (yet) !
+[2017-08-12 22:19:29,404][DEBUG][decoder.py][read_video] length - width - height - fps: 7499 - 384 - 216 - 25.0
+[2017-08-12 22:19:29,404][DEBUG][decoder.py][read_video] Read video: mp4/extract_2002_20170710_172537_v2.mp4 ...
+Retrieve frames from video: 100%|####################################################################################################################################| 7499/7499 [00:02<00:00, 3349.21it/s]
+Generate hashes from video: 100%|#####################################################################################################################################| 7499/7499 [00:09<00:00, 831.92it/s]
+{'song_id': 1, 'song_name': 'extract_2002_20170710_172537_v2', 'file_sha1': '1FE9C5FC761E9E64AC72969AC76FA76B4D9A6C09', 'confidence': 4754, 'offset_seconds': 0.0, 'match_time': 9.040064096450806, 'offset': 0}
+```
+=> Ça commence à fonctionner !
+- 3349.21it/s   => 0.298577873588 ms pour récupérer une frame de la vidéo
+- 831.92it/s    => 1.202038657560 ms pour effectuer le fingerprinting de la frame (calcul hash d'une frame)
+- 'match_time': 9.040064096450806 => temps à priori (total) pour effectuer les opérations de matchs et le résultat ... (à vérifier)
+
+
+Faut rajouter la fonctionnalité streaming pour que ce soir opérationnel !

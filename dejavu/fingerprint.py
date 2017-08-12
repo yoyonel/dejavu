@@ -8,6 +8,7 @@ from scipy.ndimage.morphology import (generate_binary_structure,
                                       iterate_structure, binary_erosion)
 import hashlib
 from operator import itemgetter
+from tqdm import tqdm
 
 IDX_FREQ_I = 0
 IDX_TIME_J = 1
@@ -62,6 +63,10 @@ PEAK_SORT = True
 # fingerprint calculation. The more you throw away, the less storage, but
 # potentially higher collisions and misclassifications when identifying songs.
 FINGERPRINT_REDUCTION = 20
+
+
+def fingerprint_for_video(frames):
+    return generate_hashes_for_video(frames)
 
 
 def fingerprint(channel_samples, Fs=DEFAULT_FS,
@@ -192,11 +197,12 @@ def generate_hashes_for_video(frames):
     :param frames:
     :return:
     """
-    for i, frame in enumerate(frames):
+    for i, frame in tqdm(enumerate(frames), total=len(frames), desc='Generate hashes from video'):
         # https://stackoverflow.com/questions/10965417/how-to-convert-numpy-array-to-pil-image-applying-matplotlib-colormap
         img = Image.fromarray(np.uint8(frame))
         hash = imagehash.phash(img)
-        yield (hash, i)
+        # TODO: revoir le format d'encodage dans la db pour les fp des videos.
+        yield (str(hash).ljust(FINGERPRINT_REDUCTION, '0'), i)
 
 
 def generate_hashes_with_plots(peaks, fan_value=DEFAULT_FAN_VALUE):

@@ -1,3 +1,4 @@
+# coding: utf8
 from dejavu.database import get_database, Database
 import dejavu.decoder as decoder
 import fingerprint
@@ -21,6 +22,7 @@ class Dejavu(object):
     OFFSET_SECS = 'offset_seconds'
 
     EXTENSIONS_FOR_AUDIO = ('.mp3', '.wav')
+    EXTENSIONS_FOR_VIDEO = ('.mp4', '.avi')
 
     def __init__(self, config):
         super(Dejavu, self).__init__()
@@ -74,8 +76,7 @@ class Dejavu(object):
                            [self.limit] * len(filenames_to_fingerprint))
 
         # Send off our tasks
-        iterator = pool.imap_unordered(_fingerprint_worker,
-                                       worker_input)
+        iterator = pool.imap_unordered(_fingerprint_worker, worker_input)
 
         # Loop till we have all of them
         while True:
@@ -90,6 +91,7 @@ class Dejavu(object):
                 # Print traceback because we can't reraise it here
                 traceback.print_exc(file=sys.stdout)
             else:
+                logger.debug("Insert in database ...")
                 sid = self.db.insert_song(song_name, file_hash)
 
                 self.db.insert_hashes(sid, hashes)
@@ -120,6 +122,11 @@ class Dejavu(object):
 
     def find_matches(self, samples, Fs=fingerprint.DEFAULT_FS):
         hashes = fingerprint.fingerprint(samples, Fs=Fs)
+        return self.db.return_matches(hashes)
+
+    def find_matches_for_video(self, frames):
+        hashes = fingerprint.fingerprint_for_video(frames)
+        # logger.debug("hashes: {}".format(list(hashes)))
         return self.db.return_matches(hashes)
 
     def align_matches(self, matches):
@@ -189,11 +196,18 @@ def _is_media(filename, search_pattern):
 
 
 def _is_audio_media(filename):
-    return _is_media(filename, 'codec_type=audio')
+    # problem: les audios contiennent aussi des vidéos (image fixe)
+    # return _is_media(filename, 'codec_type=audio')
+
+    songname, extension = os.path.splitext(os.path.basename(filename))
+    return extension in Dejavu.EXTENSIONS_FOR_AUDIO
 
 
 def _is_video_media(filename):
-    return _is_media(filename, 'codec_type=video')
+    # return _is_media(filename, 'codec_type=video')
+
+    songname, extension = os.path.splitext(os.path.basename(filename))
+    return extension in Dejavu.EXTENSIONS_FOR_VIDEO
 
 
 def _fingerprint_worker(filename, limit=None, song_name=None):
@@ -215,14 +229,13 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
         # use the Decoder
         frames, fps, file_hash = decoder.read_video(filename, limit)
 
-        result = set()
-
-        hashes = fingerprint.generate_hashes_for_video(frames)
-        result |= set(hashes)
+        # result = set()
+        hashes = fingerprint.fingerprint_for_video(frames)
+        # result |= set(hashes)
 
         # logger.debug("result: {}".format(result))
-
-        return song_name, result, file_hash
+        # return song_name, result, file_hash
+        return song_name, hashes, file_hash
     elif _is_audio_media(filename):
         logger.debug("{}{} is a audio file".format(song_name, extension))
 
