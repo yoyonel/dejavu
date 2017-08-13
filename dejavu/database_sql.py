@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from itertools import izip_longest
 import Queue
-
+from collections import defaultdict
 import MySQLdb as mysql
 from MySQLdb.cursors import DictCursor
 
@@ -276,7 +276,7 @@ class SQLDatabase(Database):
 
         with self.cursor() as cur:
             for split_values in grouper(values, 1000):
-                logger.debug("split_values: {}".format(split_values))
+                # logger.debug("split_values: {}".format(split_values))
                 cur.executemany(self.INSERT_FINGERPRINT, split_values)
 
     def return_matches(self, hashes):
@@ -285,10 +285,14 @@ class SQLDatabase(Database):
         a list of (sha1, sample_offset) values.
         """
         # Create a dictionary of hash => offset pairs for later lookups
-        mapper = {}
-        for hash, offset in hashes:
+        # mapper = {}
+        mapper = defaultdict(list)
+
+        # TODO: il peut avoir plusieurs offset pour un meme hash !
+        # ici on consomme l'iteratable ...
+        for h, offset in hashes:
             # logger.debug("hash.upper(): {}".format(hash.upper()))
-            mapper[hash.upper()] = offset
+            mapper[h.upper()].append(offset)
 
         # Get an iteratable of all the hashes we need
         values = mapper.keys()
@@ -300,19 +304,20 @@ class SQLDatabase(Database):
 
                 # Create our IN part of the query
                 query = self.SELECT_MULTIPLE
-                query = query % ', '.join(['UNHEX(%s)'] * len(split_values))
+                query %= ', '.join(['UNHEX(%s)'] * len(split_values))
 
                 # logger.debug("query: {}".format(query))
                 # logger.debug("split_values: {}".format(split_values))
                 cur.execute(query, split_values)
 
-                for hash, sid, offset in cur:
+                for h, sid, offset in cur:
                     # logger.debug("hash: {}".format(hash, offset))
                     # (sid, db_offset - song_sampled_offset)
-                    yield (sid, offset - mapper[hash])
+                    for offset_from_mapper in mapper[h]:
+                        yield (sid, offset - offset_from_mapper)
 
     def __getstate__(self):
-        return (self._options,)
+        return self._options,
 
     def __setstate__(self, state):
         self._options, = state

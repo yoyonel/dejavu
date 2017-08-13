@@ -8,7 +8,6 @@ from dejavu.logger import logger
 
 
 class BaseRecognizer(object):
-
     def __init__(self, dejavu):
         self.dejavu = dejavu
         self.Fs = fingerprint.DEFAULT_FS
@@ -19,12 +18,10 @@ class BaseRecognizer(object):
             matches.extend(self.dejavu.find_matches(d, Fs=self.Fs))
         return self.dejavu.align_matches(matches)
 
-    def _recognize_for_video(self, data):
-        matches = []
-        # for d in data:
-        # logger.debug("d: {}".format(d))
-        matches.extend(self.dejavu.find_matches_for_video(data))
-        return self.dejavu.align_matches(matches)
+    def _recognize_for_video(self, data, **kargs):
+        # logger.debug("_recognize_for_video")
+        iter_on_matches = self.dejavu.find_matches_for_video(data, **kargs)
+        return self.dejavu.align_matches_for_video(iter_on_matches, **kargs)
 
     def recognize(self):
         pass  # base class does nothing
@@ -34,20 +31,17 @@ class FileRecognizer(BaseRecognizer):
     def __init__(self, dejavu):
         super(FileRecognizer, self).__init__(dejavu)
 
-    def recognize_file(self, filename):
+    def recognize_file(self, filename, **kwargs):
+        match = False
         if _is_video_media(filename):
-            logger.warning("Video recognition not supported (yet) !")
+            # logger.warning("Video recognition not supported (yet) !")
             # use the Decoder
-            frames, fps, file_hash = decoder.read_video(filename, self.dejavu.limit)
+            frames, fps, file_hash, length = decoder.read_video(filename, self.dejavu.limit)
 
             t = time.time()
-            match = self._recognize_for_video(frames)
+            kwargs['length'] = length
+            match = self._recognize_for_video(frames, **kwargs)
             t = time.time() - t
-
-            if match:
-                match['match_time'] = t
-
-            return match
         elif _is_audio_media(filename):
             frames, self.Fs, file_hash = decoder.read(filename, self.dejavu.limit)
 
@@ -55,20 +49,20 @@ class FileRecognizer(BaseRecognizer):
             match = self._recognize(*frames)
             t = time.time() - t
 
-            if match:
-                match['match_time'] = t
+        if match:
+            match['match_time'] = t
 
-            return match
+        return match
 
-    def recognize(self, filename):
-        return self.recognize_file(filename)
+    def recognize(self, filename, **kwoptions):
+        return self.recognize_file(filename, **kwoptions)
 
 
 class MicrophoneRecognizer(BaseRecognizer):
-    default_chunksize   = 8192
-    default_format      = pyaudio.paInt16
-    default_channels    = 2
-    default_samplerate  = 44100
+    default_chunksize = 8192
+    default_format = pyaudio.paInt16
+    default_channels = 2
+    default_samplerate = 44100
 
     def __init__(self, dejavu):
         super(MicrophoneRecognizer, self).__init__(dejavu)
@@ -125,7 +119,7 @@ class MicrophoneRecognizer(BaseRecognizer):
     def recognize(self, seconds=10):
         self.start_recording()
         for i in range(0, int(self.samplerate / self.chunksize
-                              * seconds)):
+                                      * seconds)):
             self.process_recording()
         self.stop_recording()
         return self.recognize_recording()

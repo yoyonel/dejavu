@@ -8,8 +8,10 @@ import os
 import traceback
 import subprocess
 import sys
-import tqdm
-from dejavu.logger import logger
+from functools import partial
+from collections import defaultdict
+from itertools import groupby
+from dejavu.logger import logger, tqdm
 
 
 class Dejavu(object):
@@ -70,6 +72,7 @@ class Dejavu(object):
                 continue
 
             filenames_to_fingerprint.append(filename)
+        logger.debug("filenames_to_fingerprint: {}".format(filenames_to_fingerprint))
 
         # Prepare _fingerprint_worker input
         worker_input = zip(filenames_to_fingerprint,
@@ -124,35 +127,66 @@ class Dejavu(object):
         hashes = fingerprint.fingerprint(samples, Fs=Fs)
         return self.db.return_matches(hashes)
 
-    def find_matches_for_video(self, frames):
-        hashes = fingerprint.fingerprint_for_video(frames)
+    def find_matches_for_video(self, frames, **kwargs):
+        hashes = fingerprint.fingerprint_for_video(frames, **kwargs)
         # logger.debug("hashes: {}".format(list(hashes)))
         return self.db.return_matches(hashes)
 
-    def align_matches(self, matches):
+    def align_matches(self, matches, **kwargs):
         """
             Finds hash matches that align in time with other matches and finds
             consensus about which hashes are "true" signal from the audio.
 
             Returns a dictionary with match information.
         """
-        # align by diffs
-        diff_counter = {}
+        length = kwargs.get('length', 0.0)
+        threshold_matches = kwargs.get('threshold_matches', 1.0)
+        threshold_matches = int(round(float(length) * threshold_matches))
+        logger.debug("threshold for matches (in frames): {}/{}".format(threshold_matches, length))
+
+        # https://stackoverflow.com/questions/5029934/python-defaultdict-of-defaultdict
+        diff_counter = defaultdict(partial(defaultdict, int))
+
         largest = 0
         largest_count = 0
         song_id = -1
-        for tup in matches:
-            sid, diff = tup
-            if diff not in diff_counter:
-                diff_counter[diff] = {}
-            if sid not in diff_counter[diff]:
-                diff_counter[diff][sid] = 0
-            diff_counter[diff][sid] += 1
 
-            if diff_counter[diff][sid] > largest_count:
-                largest = diff
-                largest_count = diff_counter[diff][sid]
-                song_id = sid
+        logger.debug("Align matches ...")
+        # infinite loop
+        while True:
+            try:
+                # get the next item
+                sid, diff = next(matches)
+
+                # update counter dict
+                diff_counter[diff][sid] += 1
+
+                if diff_counter[diff][sid] > largest_count:
+                    largest = diff
+                    largest_count = diff_counter[diff][sid]
+                    song_id = sid
+
+                if largest_count > threshold_matches:
+                    logger.debug("Break: largest_count > {}=threshold_matches".format(threshold_matches))
+                    raise StopIteration
+            except StopIteration:
+                # if StopIteration is raised, break from loop
+                break
+
+        # for tup in matches:
+        #     logger.debug("One loop in match")
+        #     sid, diff = tup
+        #     diff_counter[diff][sid] += 1
+        #
+        #     if diff_counter[diff][sid] > largest_count:
+        #         largest = diff
+        #         largest_count = diff_counter[diff][sid]
+        #         song_id = sid
+        #
+        #     if largest_count > threshold_matches:
+        #         logger.debug("Break: largest_count > threshold_matches")
+        #         break
+        # gb_matches = groupby(matches)
 
         # extract idenfication
         song = self.db.get_song_by_id(song_id)
@@ -166,6 +200,71 @@ class Dejavu(object):
         nseconds = round(float(largest) / fingerprint.DEFAULT_FS *
                          fingerprint.DEFAULT_WINDOW_SIZE *
                          fingerprint.DEFAULT_OVERLAP_RATIO, 5)
+        song = {
+            Dejavu.SONG_ID: song_id,
+            Dejavu.SONG_NAME: songname,
+            Dejavu.CONFIDENCE: largest_count,
+            Dejavu.OFFSET: int(largest),
+            Dejavu.OFFSET_SECS: nseconds,
+            Database.FIELD_FILE_SHA1: song.get(Database.FIELD_FILE_SHA1, None), }
+        return song
+
+    def align_matches_for_video(self, matches, **kwargs):
+        """
+            Finds hash matches that align in time with other matches and finds
+            consensus about which hashes are "true" signal from the audio.
+
+            Returns a dictionary with match information.
+        """
+        length = kwargs.get('length', 0.0)
+        threshold_matches = kwargs.get('threshold_matches', 1.0)
+        threshold_matches = int(round(float(length) * threshold_matches))
+        logger.debug("threshold for matches (in frames): {}/{}".format(threshold_matches, length))
+
+        # https://stackoverflow.com/questions/5029934/python-defaultdict-of-defaultdict
+        diff_counter = defaultdict(partial(defaultdict, int))
+
+        largest = 0
+        largest_count = 0
+        song_id = -1
+
+        logger.debug("Align matches ...")
+        # infinite loop
+        while True:
+            try:
+                # get the next item
+                sid, diff = next(matches)
+
+                # update counter dict
+                diff_counter[diff][sid] += 1
+
+                if diff_counter[diff][sid] > largest_count:
+                    largest = diff
+                    largest_count = diff_counter[diff][sid]
+                    song_id = sid
+
+                if largest_count > threshold_matches:
+                    logger.debug("Break: largest_count > {}=threshold_matches".format(threshold_matches))
+                    raise StopIteration
+            except StopIteration:
+                # if StopIteration is raised, break from loop
+                break
+
+        # extract idenfication
+        song = self.db.get_song_by_id(song_id)
+        if song:
+            # TODO: Clarify what `get_song_by_id` should return.
+            songname = song.get(Dejavu.SONG_NAME, None)
+        else:
+            return None
+
+        # return match info
+        # nseconds = round(float(largest) / fingerprint.DEFAULT_FS *
+        #                  fingerprint.DEFAULT_WINDOW_SIZE *
+        #                  fingerprint.DEFAULT_OVERLAP_RATIO, 5)
+        # nseconds = round(float(largest)*(1./25.), 5)
+        nseconds = largest
+
         song = {
             Dejavu.SONG_ID: song_id,
             Dejavu.SONG_NAME: songname,
@@ -227,15 +326,16 @@ def _fingerprint_worker(filename, limit=None, song_name=None):
         logger.debug("{}{} is a video file".format(song_name, extension))
 
         # use the Decoder
-        frames, fps, file_hash = decoder.read_video(filename, limit)
+        frames, fps, file_hash, length = decoder.read_video(filename, limit)
 
-        # result = set()
-        hashes = fingerprint.fingerprint_for_video(frames)
-        # result |= set(hashes)
+        result = set()
+        kwoptions = {'length': length}
+        hashes = fingerprint.fingerprint_for_video(frames, **kwoptions)
+        result |= set(hashes)
 
         # logger.debug("result: {}".format(result))
-        # return song_name, result, file_hash
-        return song_name, hashes, file_hash
+        return song_name, result, file_hash
+        # return song_name, hashes, file_hash
     elif _is_audio_media(filename):
         logger.debug("{}{} is a audio file".format(song_name, extension))
 

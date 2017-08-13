@@ -9,7 +9,7 @@ from hashlib import sha1
 from dejavu.logger import logger, tqdm
 
 
-def unique_hash(filepath, blocksize=2**20):
+def unique_hash(filepath, blocksize=2 ** 20):
     """ Small function to generate a hash to uniquely generate
     a file. Inspired by MD5 version here:
     http://stackoverflow.com/a/1131255/712997
@@ -17,12 +17,16 @@ def unique_hash(filepath, blocksize=2**20):
     Works with large files. 
     """
     s = sha1()
-    with open(filepath, "rb") as f:
-        while True:
-            buf = f.read(blocksize)
-            if not buf:
-                break
-            s.update(buf)
+    try:
+        with open(filepath, "rb") as f:
+            while True:
+                buf = f.read(blocksize)
+                if not buf:
+                    break
+                s.update(buf)
+    except IOError, e:
+        logger.error(repr(e))
+        raise IOError(e)
     return s.hexdigest().upper()
 
 
@@ -90,7 +94,7 @@ class IterVideo:
     def __iter__(self):
         return self
 
-    def next(self):     # Python 3: def __next__(self)
+    def next(self):  # Python 3: def __next__(self)
         # http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_gui/py_video_display/py_video_display.html
         if not self.cap.isOpened() or self.current > self.high:
             raise StopIteration
@@ -113,7 +117,7 @@ def read_video(filename, limit=None):
     ps: c'est un transfert (complet) en RAM ... ce n'est peut etre pas la meilleur strategie ...
     """
     channels = []
-    frame_rate = None
+    frame_rate = length = 0
 
     try:
         cap = cv2.VideoCapture(filename)
@@ -132,7 +136,7 @@ def read_video(filename, limit=None):
     except Exception, e:
         logger.error("Exception: {}".format(repr(e)))
 
-    return channels, frame_rate, unique_hash(filename)
+    return channels, frame_rate, unique_hash(filename), length
 
 
 def path_to_songname(path):

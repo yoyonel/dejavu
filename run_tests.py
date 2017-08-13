@@ -49,6 +49,11 @@ parser.add_option("--seed",
                   default=None,
                   type=int,
                   help='Random seed')
+parser.add_option("--video",
+                  action="store_true",
+                  dest="video",
+                  default=False,
+                  help='Test for videos')
 options, args = parser.parse_args()
 test_folder = args[0]
 
@@ -69,21 +74,26 @@ if options.log:
 test_seconds = ['%dsec' % i for i in range(1, options.secs + 1, 1)]
 
 # generate testing files
-for i in range(1, options.secs + 1, 1):
-    generate_test_files(test_folder, options.temp_folder, 
-                        i, padding=options.padding)
+if options.video:
+    for i in range(1, options.secs + 1, 1):
+        generate_test_video_files(test_folder, options.temp_folder, i,
+                                  padding=options.padding, fmts=[".mp4"])
+else:
+    for i in range(1, options.secs + 1, 1):
+        generate_test_files(test_folder, options.temp_folder, i,
+                            padding=options.padding, fmts=[".mp3", ".wav"])
 
 # scan files
-log_msg("Running Dejavu fingerprinter on files in %s..." % test_folder, 
+log_msg("Running Dejavu fingerprinter on files in %s..." % test_folder,
         log=options.log, silent=options.silent)
 
 tm = time.time()
-djv = DejavuTest(options.temp_folder, test_seconds)
+djv = DejavuTest(options.temp_folder, test_seconds, options.video)
 log_msg("finished obtaining results from dejavu in %s" % (time.time() - tm),
         log=options.log, silent=options.silent)
 
 tests = 1  # djv
-n_secs = len(test_seconds) 
+n_secs = len(test_seconds)
 
 # set result variables -> 4d variables
 all_match_counter = [[[0 for x in xrange(tests)] for x in xrange(3)] for x in xrange(n_secs)]
@@ -120,7 +130,7 @@ djv.create_plots('Query duration', all_query_duration, options.results_folder)
 
 for sec in range(0, n_secs):
     ind = np.arange(3)
-    width = 0.25       # the width of the bars
+    width = 0.25  # the width of the bars
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -139,7 +149,7 @@ for sec in range(0, n_secs):
 
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.75, box.height])
-    #ax.legend((rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax.legend((rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
     autolabeldoubles(rects1, ax)
     plt.grid()
 
@@ -148,7 +158,7 @@ for sec in range(0, n_secs):
 
 for sec in range(0, n_secs):
     ind = np.arange(2)
-    width = 0.25       # the width of the bars
+    width = 0.25  # the width of the bars
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -172,7 +182,7 @@ for sec in range(0, n_secs):
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.75, box.height])
 
-    #ax.legend( (rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
+    # ax.legend( (rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
     autolabeldoubles(rects1, ax)
 
     plt.grid()

@@ -34,6 +34,16 @@ def get_files_recursive(src, fmt):
             yield os.path.join(root, filename)
 
 
+def get_length_video(videopath):
+    """
+
+    :param videopath:
+    :return:
+    """
+    cmd = "ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 {}".format(videopath)
+    return int(ast.literal_eval(subprocess.check_output(cmd.split(" "))))
+
+
 def get_length_audio(audiopath, extension):
     """
     Returns length of audio in seconds. 
@@ -59,7 +69,7 @@ def get_starttime(length, nseconds, padding):
     return random.randint(padding, maximum)
 
 
-def generate_test_files(src, dest, nseconds, fmts=[".mp3", ".wav"], padding=10):
+def generate_test_files(src, dest, nseconds, fmts=(".mp3", ".wav"), padding=10):
     """
     Generates a test file for each file recursively in `src` directory
     of given format using `nseconds` sampled from the audio file. 
@@ -81,7 +91,6 @@ def generate_test_files(src, dest, nseconds, fmts=[".mp3", ".wav"], padding=10):
     for fmt in fmts:
         testsources = get_files_recursive(src, fmt)
         for audiosource in testsources:
-
             print "audiosource:", audiosource
 
             filename, extension = os.path.splitext(os.path.basename(audiosource))
@@ -102,6 +111,48 @@ def generate_test_files(src, dest, nseconds, fmts=[".mp3", ".wav"], padding=10):
                 test_file_name])
 
 
+def generate_test_video_files(src, dest, nseconds, fmts=(".mp4",), padding=10):
+    """
+    Generates a test file for each file recursively in `src` directory
+    of given format using `nseconds` sampled from the audio file.
+
+    Results are written to `dest` directory.
+
+    `padding` is the number of off-limit seconds and the beginning and
+    end of a track that won't be sampled in testing. Often you want to
+    avoid silence, etc.
+    """
+    # create directories if necessary
+    for directory in [src, dest]:
+        try:
+            os.stat(directory)
+        except:
+            os.mkdir(directory)
+
+    # find files recursively of a given file format
+    for fmt in fmts:
+        testsources = get_files_recursive(src, fmt)
+        for videosource in testsources:
+            print "videosource:", videosource
+
+            length = get_length_video(videosource)
+            starttime = get_starttime(length, nseconds, padding)
+
+            filename, extension = os.path.splitext(os.path.basename(videosource))
+            test_file_name = "%s_%s_%ssec.%s" % (
+                os.path.join(dest, filename), starttime,
+                nseconds, extension.replace(".", ""))
+
+            # https://trac.ffmpeg.org/ticket/6375
+            subprocess.check_output([
+                "ffmpeg", "-y",
+                "-ss", "%d" % starttime,
+                '-t', "%d" % nseconds,
+                "-i", videosource,
+                "-max_muxing_queue_size", "400",
+                test_file_name])
+
+
 def log_msg(msg, log=True, silent=False):
     if log:
         logging.debug(msg)
@@ -113,7 +164,7 @@ def autolabel(rects, ax):
     # attach some text labels
     for rect in rects:
         height = rect.get_height()
-        ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height, 
+        ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height,
                 '%d' % int(height), ha='center', va='bottom')
 
 
@@ -121,12 +172,12 @@ def autolabeldoubles(rects, ax):
     # attach some text labels
     for rect in rects:
         height = rect.get_height()
-        ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height, 
+        ax.text(rect.get_x() + rect.get_width() / 2., 1.05 * height,
                 '%s' % round(float(height), 3), ha='center', va='bottom')
 
 
 class DejavuTest(object):
-    def __init__(self, folder, seconds):
+    def __init__(self, folder, seconds, is_videos=False):
         super(DejavuTest, self).__init__()
 
         self.test_folder = folder
@@ -136,8 +187,8 @@ class DejavuTest(object):
         print "test_seconds", self.test_seconds
 
         self.test_files = [
-            f for f in os.listdir(self.test_folder) 
-            if os.path.isfile(os.path.join(self.test_folder, f)) 
+            f for f in os.listdir(self.test_folder)
+            if os.path.isfile(os.path.join(self.test_folder, f))
             and re.findall("[0-9]*sec", f)[0] in self.test_seconds]
 
         print "test_files", self.test_files
@@ -150,18 +201,20 @@ class DejavuTest(object):
         print "lines:", self.n_lines
 
         # variable match results (yes, no, invalid)
-        self.result_match = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)] 
+        self.result_match = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)]
 
-        print "result_match matrix:", self.result_match 
+        print "result_match matrix:", self.result_match
 
         # variable match precision (if matched in the corrected time)
-        self.result_matching_times = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)] 
+        self.result_matching_times = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)]
 
         # variable mahing time (query time) 
-        self.result_query_duration = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)] 
+        self.result_query_duration = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)]
 
         # variable confidence
-        self.result_match_confidence = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)] 
+        self.result_match_confidence = [[0 for x in xrange(self.n_columns)] for x in xrange(self.n_lines)]
+
+        self.is_videos = is_videos
 
         self.begin()
 
@@ -180,7 +233,7 @@ class DejavuTest(object):
     def create_plots(self, name, results, results_folder):
         for sec in range(0, len(self.test_seconds)):
             ind = np.arange(self.n_lines)
-            width = 0.25       # the width of the bars
+            width = 0.25  # the width of the bars
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -191,18 +244,16 @@ class DejavuTest(object):
 
             # add some
             ax.set_ylabel(name)
-            ax.set_title("%s %s Results" % (self.test_seconds[sec], name)) 
+            ax.set_title("%s %s Results" % (self.test_seconds[sec], name))
             ax.set_xticks(ind + width)
 
-            labels = [0 for x in range(0, self.n_lines)]
-            for x in range(0, self.n_lines):
-                labels[x] = "song %s" % (x + 1)
+            labels = ["song %s" % (x + 1) for x in range(self.n_lines)]
             ax.set_xticklabels(labels)
 
             box = ax.get_position()
             ax.set_position([box.x0, box.y0, box.width * 0.75, box.height])
 
-            #ax.legend( (rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
+            # ax.legend( (rects1[0]), ('Dejavu'), loc='center left', bbox_to_anchor=(1, 0.5))
 
             if name == 'Confidence':
                 autolabel(rects1, ax)
@@ -222,13 +273,13 @@ class DejavuTest(object):
             # get column 
             col = self.get_column_id(re.findall("[0-9]*sec", f)[0])
             # format: XXXX_offset_length.mp3
-            song = path_to_songname(f).split("_")[0]  
+            song = path_to_songname(f).split("_")[0]
             line = self.get_line_id(song)
             result = subprocess.check_output([
-                "python", 
+                "python",
                 "dejavu.py",
                 '-r',
-                'file', 
+                'file',
                 self.test_folder + "/" + f])
 
             if result.strip() == "None":
@@ -246,6 +297,9 @@ class DejavuTest(object):
                 result = result.replace("\',", '",')
 
                 # which song did we predict?
+                # https://stackoverflow.com/questions/39807724/extract-python-dictionary-from-string
+                result = re.search('({.+})', result).group(0)
+
                 result = ast.literal_eval(result)
                 song_result = result["song_name"]
                 log_msg('song: %s' % song)
@@ -267,18 +321,22 @@ class DejavuTest(object):
                     song_start_time = re.findall("\_[^\_]+", f)
                     song_start_time = song_start_time[0].lstrip("_ ")
 
-                    result_start_time = round((result[Dejavu.OFFSET] * DEFAULT_WINDOW_SIZE * 
-                                               DEFAULT_OVERLAP_RATIO) / (DEFAULT_FS), 0)
+                    if self.is_videos:
+                        frame_rate = 25.0
+                        result_start_time = round(result[Dejavu.OFFSET] / frame_rate, 0)
+                    else:
+                        result_start_time = round((result[Dejavu.OFFSET] * DEFAULT_WINDOW_SIZE *
+                                                   DEFAULT_OVERLAP_RATIO) / DEFAULT_FS, 0)
 
                     self.result_matching_times[line][col] = int(result_start_time) - int(song_start_time)
-                    if (abs(self.result_matching_times[line][col]) == 1):
+                    if abs(self.result_matching_times[line][col]) == 1:
                         self.result_matching_times[line][col] = 0
 
                     log_msg('query duration: %s' % round(result[Dejavu.MATCH_TIME], 3))
                     log_msg('confidence: %s' % result[Dejavu.CONFIDENCE])
                     log_msg('song start_time: %s' % song_start_time)
                     log_msg('result start time: %s' % result_start_time)
-                    if (self.result_matching_times[line][col] == 0):
+                    if self.result_matching_times[line][col] == 0:
                         log_msg('accurate match')
                     else:
                         log_msg('inaccurate match')

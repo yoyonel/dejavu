@@ -9,6 +9,7 @@ import argparse
 from dejavu import Dejavu
 from dejavu.recognize import FileRecognizer
 from dejavu.recognize import MicrophoneRecognizer
+from dejavu.logger import logger
 from argparse import RawTextHelpFormatter
 
 warnings.filterwarnings("ignore")
@@ -70,8 +71,7 @@ if __name__ == '__main__':
         if len(args.fingerprint) == 2:
             directory = args.fingerprint[0]
             extension = args.fingerprint[1]
-            print("Fingerprinting all .%s files in the %s directory"
-                  % (extension, directory))
+            logger.info("Fingerprinting all .%s files in the %s directory" % (extension, directory))
             djv.fingerprint_directory(directory, ["." + extension], 4)
 
         elif len(args.fingerprint) == 1:
@@ -90,6 +90,7 @@ if __name__ == '__main__':
         if source in ('mic', 'microphone'):
             song = djv.recognize(MicrophoneRecognizer, seconds=opt_arg)
         elif source == 'file':
+            # song = djv.recognize(FileRecognizer, opt_arg, threshold_matches=0.1)
             song = djv.recognize(FileRecognizer, opt_arg)
         print(song)
 

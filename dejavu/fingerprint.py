@@ -9,6 +9,7 @@ from scipy.ndimage.morphology import (generate_binary_structure,
 import hashlib
 from operator import itemgetter
 from tqdm import tqdm
+import sys
 
 IDX_FREQ_I = 0
 IDX_TIME_J = 1
@@ -65,8 +66,8 @@ PEAK_SORT = True
 FINGERPRINT_REDUCTION = 20
 
 
-def fingerprint_for_video(frames):
-    return generate_hashes_for_video(frames)
+def fingerprint_for_video(frames, **kwargs):
+    return generate_hashes_for_video(frames, kwargs.get('length', sys.maxint))
 
 
 def fingerprint(channel_samples, Fs=DEFAULT_FS,
@@ -185,19 +186,20 @@ def generate_hashes(peaks, fan_value=DEFAULT_FAN_VALUE):
                 t2 = peaks[i + j][IDX_TIME_J]
                 t_delta = t2 - t1
 
-                if t_delta >= MIN_HASH_TIME_DELTA and t_delta <= MAX_HASH_TIME_DELTA:
+                if MIN_HASH_TIME_DELTA <= t_delta <= MAX_HASH_TIME_DELTA:
                     h = hashlib.sha1(
                         "%s|%s|%s" % (str(freq1), str(freq2), str(t_delta)))
                     yield (h.hexdigest()[0:FINGERPRINT_REDUCTION], t1)
 
 
-def generate_hashes_for_video(frames):
+def generate_hashes_for_video(frames, length=0):
     """
 
     :param frames:
+    :param length:
     :return:
     """
-    for i, frame in tqdm(enumerate(frames), total=len(frames), desc='Generate hashes from video'):
+    for i, frame in tqdm(enumerate(frames), total=length, desc='Generate hashes from video'):
         # https://stackoverflow.com/questions/10965417/how-to-convert-numpy-array-to-pil-image-applying-matplotlib-colormap
         img = Image.fromarray(np.uint8(frame))
         hash = imagehash.phash(img)
