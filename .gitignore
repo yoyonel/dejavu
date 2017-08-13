@@ -1,6 +1,9 @@
+temp_video/
+
 .cache/
 mariadb/
 
+results_video/
 results/
 
 database/

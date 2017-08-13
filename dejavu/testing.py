@@ -40,8 +40,10 @@ def get_length_video(videopath):
     :param videopath:
     :return:
     """
-    cmd = "ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 {}".format(videopath)
-    return int(ast.literal_eval(subprocess.check_output(cmd.split(" "))))
+    cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0",
+           "-show_entries", "stream=duration", "-of", "default=noprint_wrappers=1:nokey=1",
+           '{}'.format(videopath)]
+    return int(ast.literal_eval(subprocess.check_output(cmd)))
 
 
 def get_length_audio(audiopath, extension):

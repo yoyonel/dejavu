@@ -43,6 +43,13 @@ class SQLDatabase(Database):
         select songs.song_name, fingerprints.offset
         from fingerprints natural join songs
         where fingerprints.hash = "08d3c833b71c60a7b620322ac0c0aba7bf5a3e73";
+
+    4) size of tables
+        SELECT
+            table_schema as `Database`,
+            table_name AS `Table`,
+            round(((data_length + index_length) / 1024 / 1024), 2) `Size in MB`
+        FROM information_schema.TABLES;
     """
 
     type = "mysql"
