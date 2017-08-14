@@ -11,7 +11,7 @@ rm -rf ./results_video ./temp_video
 
 ###########
 # Fingerprint files of extension mp3 in the ./mp3 folder
-python dejavu.py -f ./mp4/ mp4
+python dejavu.py -f ./videos/ mp4
 
 ##########
 # Run a test suite on the ./mp3 folder by extracting 1, 2, 3, 4, and 5
@@ -28,7 +28,7 @@ python ${PYTHON_DBG} run_tests.py \
 	--padding 8 \
 	--seed 42 \
 	--results ./results_video \
-	./mp4
+	./videos
 
 set +e
 
