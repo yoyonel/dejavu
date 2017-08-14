@@ -130,7 +130,8 @@ class Dejavu(object):
     def find_matches_for_video(self, frames, **kwargs):
         hashes = fingerprint.fingerprint_for_video(frames, **kwargs)
         # logger.debug("hashes: {}".format(list(hashes)))
-        return self.db.return_matches(hashes)
+        # return self.db.return_matches(hashes)
+        return self.db.return_matches_with_split(hashes)
 
     def align_matches(self, matches, **kwargs):
         """
@@ -172,22 +173,7 @@ class Dejavu(object):
             except StopIteration:
                 # if StopIteration is raised, break from loop
                 break
-
-        # for tup in matches:
-        #     logger.debug("One loop in match")
-        #     sid, diff = tup
-        #     diff_counter[diff][sid] += 1
-        #
-        #     if diff_counter[diff][sid] > largest_count:
-        #         largest = diff
-        #         largest_count = diff_counter[diff][sid]
-        #         song_id = sid
-        #
-        #     if largest_count > threshold_matches:
-        #         logger.debug("Break: largest_count > threshold_matches")
-        #         break
-        # gb_matches = groupby(matches)
-
+        logger.debug("largest_count: {}".format(largest_count))
         # extract idenfication
         song = self.db.get_song_by_id(song_id)
         if song:
@@ -250,6 +236,8 @@ class Dejavu(object):
                 # if StopIteration is raised, break from loop
                 break
 
+        logger.debug("largest_count: {}".format(largest_count))
+
         # extract idenfication
         song = self.db.get_song_by_id(song_id)
         if song:
@@ -259,10 +247,6 @@ class Dejavu(object):
             return None
 
         # return match info
-        # nseconds = round(float(largest) / fingerprint.DEFAULT_FS *
-        #                  fingerprint.DEFAULT_WINDOW_SIZE *
-        #                  fingerprint.DEFAULT_OVERLAP_RATIO, 5)
-        # nseconds = round(float(largest)*(1./25.), 5)
         nseconds = largest
 
         song = {

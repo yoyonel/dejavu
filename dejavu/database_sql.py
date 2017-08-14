@@ -120,7 +120,7 @@ class SQLDatabase(Database):
 
     SELECT_NUM_FINGERPRINTS = """
         SELECT COUNT(*) as n FROM %s
-    """ % (FINGERPRINTS_TABLENAME)
+    """ % FINGERPRINTS_TABLENAME
 
     SELECT_UNIQUE_SONG_IDS = """
         SELECT COUNT(DISTINCT %s) as n FROM %s WHERE %s = 1;
@@ -149,6 +149,11 @@ class SQLDatabase(Database):
         super(SQLDatabase, self).__init__()
         self.cursor = cursor_factory(**options)
         self._options = options
+
+        self._grouper_options = {
+            'DB_REQUEST': options.get("grouper_db_request", 100),
+            'SPLIT_HASHES': options.get("grouper_return_matches", 25)
+        }
 
     def after_fork(self):
         # Clear the cursor cache, we don't want any stale connections from
@@ -244,6 +249,7 @@ class SQLDatabase(Database):
             cur.execute(self.INSERT_FINGERPRINT, (hash, sid, offset))
 
     def insert_song(self, songname, file_hash):
+        # type: (str, str) -> str
         """
         Inserts song in the database and returns the ID of the inserted record.
         """
@@ -282,7 +288,7 @@ class SQLDatabase(Database):
             values.append((hash, sid, offset))
 
         with self.cursor() as cur:
-            for split_values in grouper(values, 1000):
+            for split_values in grouper(values, self._grouper_options['DB_REQUEST']):
                 # logger.debug("split_values: {}".format(split_values))
                 cur.executemany(self.INSERT_FINGERPRINT, split_values)
 
@@ -291,12 +297,11 @@ class SQLDatabase(Database):
         Return the (song_id, offset_diff) tuples associated with
         a list of (sha1, sample_offset) values.
         """
+        # TODO: il peut avoir plusieurs offset pour un meme hash !
         # Create a dictionary of hash => offset pairs for later lookups
-        # mapper = {}
         mapper = defaultdict(list)
 
-        # TODO: il peut avoir plusieurs offset pour un meme hash !
-        # ici on consomme l'iteratable ...
+        # WARNING: On consomme (tout) l'iteratable !
         for h, offset in hashes:
             # logger.debug("hash.upper(): {}".format(hash.upper()))
             mapper[h.upper()].append(offset)
@@ -306,7 +311,7 @@ class SQLDatabase(Database):
         # logger.debug("len(mapper.keys()): {}".format(len(mapper.keys())))
 
         with self.cursor() as cur:
-            for split_values in grouper(values, 1000):
+            for split_values in grouper(values, self._grouper_options['DB_REQUEST']):
                 # logger.debug("split_values: {}".format(split_values))
 
                 # Create our IN part of the query
@@ -322,6 +327,34 @@ class SQLDatabase(Database):
                     # (sid, db_offset - song_sampled_offset)
                     for offset_from_mapper in mapper[h]:
                         yield (sid, offset - offset_from_mapper)
+
+    def return_matches_with_split(self, hashes):
+        """
+        Return the (song_id, offset_diff) tuples associated with
+        a list of (sha1, sample_offset) values.
+        """
+        option_split_hashes = self._grouper_options['SPLIT_HASHES']
+        logger.debug("option_split_hashes: {}".format(option_split_hashes))
+        for split_hashes in grouper(hashes, option_split_hashes):
+            mapper = defaultdict(list)
+            values = []
+
+            for h, offset in split_hashes:
+                mapper_hash = h.upper()
+                mapper[mapper_hash].append(offset)
+                values.append(mapper_hash)
+
+            with self.cursor() as cur:
+                for split_values in grouper(values, self._grouper_options['DB_REQUEST']):
+                    # Create our IN part of the query
+                    query = self.SELECT_MULTIPLE
+                    query %= ', '.join(['UNHEX(%s)'] * len(split_values))
+
+                    cur.execute(query, split_values)
+
+                    for h, sid, offset in cur:
+                        for offset_from_mapper in mapper[h]:
+                            yield (sid, offset - offset_from_mapper)
 
     def __getstate__(self):
         return self._options,

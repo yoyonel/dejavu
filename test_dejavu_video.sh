@@ -24,7 +24,7 @@ python ${PYTHON_DBG} run_tests.py \
     --video \
 	--secs 5 \
 	--temp ./temp_video \
-	--log-file ./results/dejavu-test-video.log \
+	--log-file ./results_video/dejavu-test-video.log \
 	--padding 8 \
 	--seed 42 \
 	--results ./results_video \

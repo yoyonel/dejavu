@@ -90,8 +90,7 @@ if __name__ == '__main__':
         if source in ('mic', 'microphone'):
             song = djv.recognize(MicrophoneRecognizer, seconds=opt_arg)
         elif source == 'file':
-            # song = djv.recognize(FileRecognizer, opt_arg, threshold_matches=0.1)
-            song = djv.recognize(FileRecognizer, opt_arg)
+            song = djv.recognize(FileRecognizer, opt_arg, threshold_matches=1.0)
         print(song)
 
     sys.exit(0)

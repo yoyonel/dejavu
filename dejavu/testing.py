@@ -300,46 +300,49 @@ class DejavuTest(object):
 
                 # which song did we predict?
                 # https://stackoverflow.com/questions/39807724/extract-python-dictionary-from-string
-                result = re.search('({.+})', result).group(0)
+                try:
+                    result = re.search('({.+})', result).group(0)
 
-                result = ast.literal_eval(result)
-                song_result = result["song_name"]
-                log_msg('song: %s' % song)
-                log_msg('song_result: %s' % song_result)
+                    result = ast.literal_eval(result)
+                    song_result = result["song_name"]
+                    log_msg('song: %s' % song)
+                    log_msg('song_result: %s' % song_result)
 
-                if song_result != song:
-                    log_msg('invalid match')
-                    self.result_match[line][col] = 'invalid'
-                    self.result_matching_times[line][col] = 0
-                    self.result_query_duration[line][col] = 0
-                    self.result_match_confidence[line][col] = 0
-                else:
-                    log_msg('correct match')
-                    print self.result_match
-                    self.result_match[line][col] = 'yes'
-                    self.result_query_duration[line][col] = round(result[Dejavu.MATCH_TIME], 3)
-                    self.result_match_confidence[line][col] = result[Dejavu.CONFIDENCE]
-
-                    song_start_time = re.findall("\_[^\_]+", f)
-                    song_start_time = song_start_time[0].lstrip("_ ")
-
-                    if self.is_videos:
-                        frame_rate = 25.0
-                        result_start_time = round(result[Dejavu.OFFSET] / frame_rate, 0)
-                    else:
-                        result_start_time = round((result[Dejavu.OFFSET] * DEFAULT_WINDOW_SIZE *
-                                                   DEFAULT_OVERLAP_RATIO) / DEFAULT_FS, 0)
-
-                    self.result_matching_times[line][col] = int(result_start_time) - int(song_start_time)
-                    if abs(self.result_matching_times[line][col]) == 1:
+                    if song_result != song:
+                        log_msg('invalid match')
+                        self.result_match[line][col] = 'invalid'
                         self.result_matching_times[line][col] = 0
-
-                    log_msg('query duration: %s' % round(result[Dejavu.MATCH_TIME], 3))
-                    log_msg('confidence: %s' % result[Dejavu.CONFIDENCE])
-                    log_msg('song start_time: %s' % song_start_time)
-                    log_msg('result start time: %s' % result_start_time)
-                    if self.result_matching_times[line][col] == 0:
-                        log_msg('accurate match')
+                        self.result_query_duration[line][col] = 0
+                        self.result_match_confidence[line][col] = 0
                     else:
-                        log_msg('inaccurate match')
+                        log_msg('correct match')
+                        print self.result_match
+                        self.result_match[line][col] = 'yes'
+                        self.result_query_duration[line][col] = round(result[Dejavu.MATCH_TIME], 3)
+                        self.result_match_confidence[line][col] = result[Dejavu.CONFIDENCE]
+
+                        song_start_time = re.findall("\_[^\_]+", f)
+                        song_start_time = song_start_time[0].lstrip("_ ")
+
+                        if self.is_videos:
+                            frame_rate = 25.0
+                            result_start_time = round(result[Dejavu.OFFSET] / frame_rate, 0)
+                        else:
+                            result_start_time = round((result[Dejavu.OFFSET] * DEFAULT_WINDOW_SIZE *
+                                                       DEFAULT_OVERLAP_RATIO) / DEFAULT_FS, 0)
+
+                        self.result_matching_times[line][col] = int(result_start_time) - int(song_start_time)
+                        if abs(self.result_matching_times[line][col]) == 1:
+                            self.result_matching_times[line][col] = 0
+
+                        log_msg('query duration: %s' % round(result[Dejavu.MATCH_TIME], 3))
+                        log_msg('confidence: %s' % result[Dejavu.CONFIDENCE])
+                        log_msg('song start_time: %s' % song_start_time)
+                        log_msg('result start time: %s' % result_start_time)
+                        if self.result_matching_times[line][col] == 0:
+                            log_msg('accurate match')
+                        else:
+                            log_msg('inaccurate match')
+                except Exception, e:
+                    log_msg("Error. Exception: {}".format(repr(e)))
             log_msg('--------------------------------------------------\n')
