@@ -23,6 +23,11 @@ parser.add_option("--temp",
                   dest="temp_folder",
                   default="./dejavu_temp_testing_files",
                   help='Sets the path where the temp files are saved')
+parser.add_option("--keep-temp",
+                  action="store_false",
+                  dest="keep_temp",
+                  default=False,
+                  help='Disable remove tempory directory')
 parser.add_option("--log",
                   action="store_true",
                   dest="log",
@@ -54,6 +59,12 @@ parser.add_option("--video",
                   dest="video",
                   default=False,
                   help='Test for videos')
+parser.add_option("--skip-generate-test-files",
+                  action="store_true",
+                  dest="skip_generate_test_files",
+                  default=False,
+                  help='Skip the generation of test files')
+
 options, args = parser.parse_args()
 test_folder = args[0]
 
@@ -74,14 +85,17 @@ if options.log:
 test_seconds = ['%dsec' % i for i in range(1, options.secs + 1, 1)]
 
 # generate testing files
-if options.video:
-    for i in range(1, options.secs + 1, 1):
-        generate_test_video_files(test_folder, options.temp_folder, i,
-                                  padding=options.padding, fmts=[".mp4"])
+if not options.skip_generate_test_files:
+    if options.video:
+        for i in range(1, options.secs + 1, 1):
+            generate_test_video_files(test_folder, options.temp_folder, i,
+                                      padding=options.padding, fmts=[".mp4"])
+    else:
+        for i in range(1, options.secs + 1, 1):
+            generate_test_files(test_folder, options.temp_folder, i,
+                                padding=options.padding, fmts=[".mp3", ".wav"])
 else:
-    for i in range(1, options.secs + 1, 1):
-        generate_test_files(test_folder, options.temp_folder, i,
-                            padding=options.padding, fmts=[".mp3", ".wav"])
+    log_msg("Skip generated testing files")
 
 # scan files
 log_msg("Running Dejavu fingerprinter on files in %s..." % test_folder,
@@ -191,4 +205,5 @@ for sec in range(0, n_secs):
     fig.savefig(fig_name)
 
 # remove temporary folder
-shutil.rmtree(options.temp_folder)
+if not options.keep_temp:
+    shutil.rmtree(options.temp_folder)

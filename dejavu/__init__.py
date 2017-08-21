@@ -42,12 +42,13 @@ class Dejavu(object):
         self.limit = self.config.get("fingerprint_limit", None)
         if self.limit == -1:  # for JSON compatibility
             self.limit = None
-        self.get_fingerprinted_songs()
 
-    def get_fingerprinted_songs(self):
         # get songs previously indexed
         self.songs = self.db.get_songs()
         self.songhashes_set = set()  # to know which ones we've computed before
+        self.get_fingerprinted_songs()
+
+    def get_fingerprinted_songs(self):
         for song in self.songs:
             song_hash = song[Database.FIELD_FILE_SHA1]
             self.songhashes_set.add(song_hash)
@@ -150,7 +151,7 @@ class Dejavu(object):
 
         largest = 0
         largest_count = 0
-        song_id = -1
+        media_id = -1
 
         logger.debug("Align matches ...")
         # infinite loop
@@ -165,7 +166,7 @@ class Dejavu(object):
                 if diff_counter[diff][sid] > largest_count:
                     largest = diff
                     largest_count = diff_counter[diff][sid]
-                    song_id = sid
+                    media_id = sid
 
                 if largest_count > threshold_matches:
                     logger.debug("Break: largest_count > {}=threshold_matches".format(threshold_matches))
@@ -175,7 +176,7 @@ class Dejavu(object):
                 break
         logger.debug("largest_count: {}".format(largest_count))
         # extract idenfication
-        song = self.db.get_song_by_id(song_id)
+        song = self.db.get_song_by_id(media_id)
         if song:
             # TODO: Clarify what `get_song_by_id` should return.
             songname = song.get(Dejavu.SONG_NAME, None)
@@ -187,13 +188,54 @@ class Dejavu(object):
                          fingerprint.DEFAULT_WINDOW_SIZE *
                          fingerprint.DEFAULT_OVERLAP_RATIO, 5)
         song = {
-            Dejavu.SONG_ID: song_id,
+            Dejavu.SONG_ID: media_id,
             Dejavu.SONG_NAME: songname,
             Dejavu.CONFIDENCE: largest_count,
             Dejavu.OFFSET: int(largest),
             Dejavu.OFFSET_SECS: nseconds,
             Database.FIELD_FILE_SHA1: song.get(Database.FIELD_FILE_SHA1, None), }
         return song
+
+    def extract_identification(self, song_id):
+        songname = None
+        video = self.db.get_song_by_id(song_id)
+        if video:
+            # TODO: Clarify what `get_song_by_id` should return.
+            songname = video.get(Dejavu.SONG_NAME, None)
+        return video, songname
+
+    def extract_identification_for_video(
+            self,
+            largest,
+            largest_count,
+            song_id):
+        """
+
+        :return:
+        """
+        video_from_match = {}
+
+        try:
+            # extract idenfication
+            video_from_db, songname = self.extract_identification(song_id)
+
+            # return match info
+            nseconds = largest
+
+            video_from_match = {
+                Dejavu.SONG_ID: song_id,
+                Dejavu.SONG_NAME: songname,
+                Dejavu.CONFIDENCE: largest_count,
+                Dejavu.OFFSET: int(largest),
+                Dejavu.OFFSET_SECS: nseconds,
+                Database.FIELD_FILE_SHA1: video_from_db.get(Database.FIELD_FILE_SHA1, None), }
+        except Exception, e:
+            logger.warning(
+                'Problem for extraction identification for a video\n'
+                'largest={}, largest_count={}, song_id={}'.format(
+                    largest, largest_count, song_id))
+            logger.error("Exception: {}".format(repr(e)))
+        return video_from_match
 
     def align_matches_for_video(self, matches, **kwargs):
         """
@@ -202,11 +244,19 @@ class Dejavu(object):
 
             Returns a dictionary with match information.
         """
+        video = False
+
+        # unpack des parametres contenus dans le dictionnaire de parametres (**kwargs)
+        # longueur de la video input
         length = kwargs.get('length', 0.0)
+        # seuil/threshold pour breaker la recherche de meilleur match (% sur la longueur de la video input)
+        # on recupere le pourcentage (absolu)
         threshold_matches = kwargs.get('threshold_matches', 1.0)
+        # on le converti en frames (relatif a la taille de la video)
         threshold_matches = int(round(float(length) * threshold_matches))
         logger.debug("threshold for matches (in frames): {}/{}".format(threshold_matches, length))
 
+        # Utilisation d'un defaultdict (permettant d'eviter pas mal de if a la main)
         # https://stackoverflow.com/questions/5029934/python-defaultdict-of-defaultdict
         diff_counter = defaultdict(partial(defaultdict, int))
 
@@ -218,7 +268,7 @@ class Dejavu(object):
         # infinite loop
         while True:
             try:
-                # get the next item
+                # get the next item (from iterator)
                 sid, diff = next(matches)
 
                 # update counter dict
@@ -229,34 +279,20 @@ class Dejavu(object):
                     largest_count = diff_counter[diff][sid]
                     song_id = sid
 
+                # Early exit (avec le threshold/seuil)
                 if largest_count > threshold_matches:
                     logger.debug("Break: largest_count > {}=threshold_matches".format(threshold_matches))
                     raise StopIteration
             except StopIteration:
                 # if StopIteration is raised, break from loop
                 break
+        if song_id:
+            logger.debug("largest_count: {}".format(largest_count))
 
-        logger.debug("largest_count: {}".format(largest_count))
+            # extract idenfication
+            video = self.extract_identification_for_video(largest, largest_count, song_id)
 
-        # extract idenfication
-        song = self.db.get_song_by_id(song_id)
-        if song:
-            # TODO: Clarify what `get_song_by_id` should return.
-            songname = song.get(Dejavu.SONG_NAME, None)
-        else:
-            return None
-
-        # return match info
-        nseconds = largest
-
-        song = {
-            Dejavu.SONG_ID: song_id,
-            Dejavu.SONG_NAME: songname,
-            Dejavu.CONFIDENCE: largest_count,
-            Dejavu.OFFSET: int(largest),
-            Dejavu.OFFSET_SECS: nseconds,
-            Database.FIELD_FILE_SHA1: song.get(Database.FIELD_FILE_SHA1, None), }
-        return song
+        return video, diff_counter
 
     def recognize(self, recognizer, *options, **kwoptions):
         r = recognizer(self)

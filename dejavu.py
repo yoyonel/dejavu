@@ -5,8 +5,10 @@ import sys
 import json
 import warnings
 import argparse
+from pprint import pformat
 
 from dejavu import Dejavu
+from dejavu.recognize import DoublonRecognizer
 from dejavu.recognize import FileRecognizer
 from dejavu.recognize import MicrophoneRecognizer
 from dejavu.logger import logger
@@ -51,10 +53,16 @@ if __name__ == '__main__':
                              'Usage: \n'
                              '--recognize mic number_of_seconds \n'
                              '--recognize file path/to/file \n')
+    parser.add_argument('-d', '--doublon', nargs=2,
+                        help='Find (potential) doublons '
+                             'for a media\n'
+                             'Usage: \n'
+                             '--doublon file path/to/file \n')
     parser.add_argument('--empty_database', action='store_true', default=False)
+
     args = parser.parse_args()
 
-    if not args.fingerprint and not args.recognize:
+    if not args.fingerprint and not args.recognize and not args.doublon:
         parser.print_help()
         sys.exit(0)
 
@@ -92,5 +100,15 @@ if __name__ == '__main__':
         elif source == 'file':
             song = djv.recognize(FileRecognizer, opt_arg, threshold_matches=1.0)
         print(song)
+
+    elif args.doublon:
+        # Find (potentials) doublons for a media
+        doublons = None
+        source = args.doublon[0]
+        opt_arg = args.doublon[1]
+
+        if source == 'file':
+            doublons = djv.recognize(DoublonRecognizer, opt_arg)
+        print("doublons: {}".format(pformat(doublons)))
 
     sys.exit(0)

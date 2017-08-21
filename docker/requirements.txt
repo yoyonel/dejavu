@@ -10,4 +10,5 @@ colorlog
 tqdm
 imagehash
 Pillow
+prettyprint
 ### END ###

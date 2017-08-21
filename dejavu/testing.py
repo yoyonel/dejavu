@@ -11,6 +11,7 @@ import ast
 import subprocess
 import random
 import logging
+import glob
 
 
 def set_seed(seed=None):
@@ -34,16 +35,33 @@ def get_files_recursive(src, fmt):
             yield os.path.join(root, filename)
 
 
+def doublequotes_argument(arg):
+    """
+
+    :param s:
+    :return:
+
+    >>> _doublequotes_argument("export/nocuts/1501688579#service=201&flavour=ld#541.0#23.0#S.C Johnson#Autan#Anti moustique .mp4")
+    '"export/nocuts/1501688579#service=201&flavour=ld#541.0#23.0#S.C Johnson#Autan#Anti moustique .mp4"'
+    """
+    return "\"{}\"".format(arg)
+
+
 def get_length_video(videopath):
     """
 
     :param videopath:
     :return:
     """
-    cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0",
-           "-show_entries", "stream=duration", "-of", "default=noprint_wrappers=1:nokey=1",
-           '{}'.format(videopath)]
-    return int(ast.literal_eval(subprocess.check_output(cmd)))
+    try:
+        video_filepath = glob.glob(videopath)[0]
+
+        cmd = ["ffprobe", "-v", "error", "-select_streams", "v:0",
+               "-show_entries", "stream=duration", "-of", "default=noprint_wrappers=1:nokey=1",
+               '{}'.format(video_filepath)]
+        return int(ast.literal_eval(subprocess.check_output(cmd)))
+    except SyntaxError:
+        return 0
 
 
 def get_length_audio(audiopath, extension):
@@ -138,21 +156,24 @@ def generate_test_video_files(src, dest, nseconds, fmts=(".mp4",), padding=10):
             print "videosource:", videosource
 
             length = get_length_video(videosource)
-            starttime = get_starttime(length, nseconds, padding)
+            if length >= (padding + nseconds):
+                starttime = get_starttime(length, nseconds, padding)
 
-            filename, extension = os.path.splitext(os.path.basename(videosource))
-            test_file_name = "%s_%s_%ssec.%s" % (
-                os.path.join(dest, filename), starttime,
-                nseconds, extension.replace(".", ""))
+                filename, extension = os.path.splitext(os.path.basename(videosource))
+                test_file_name = "%s_%s_%ssec.%s" % (
+                    os.path.join(dest, filename), starttime,
+                    nseconds, extension.replace(".", ""))
 
-            # https://trac.ffmpeg.org/ticket/6375
-            subprocess.check_output([
-                "ffmpeg", "-y",
-                "-ss", "%d" % starttime,
-                '-t', "%d" % nseconds,
-                "-i", videosource,
-                "-max_muxing_queue_size", "400",
-                test_file_name])
+                # https://trac.ffmpeg.org/ticket/6375
+                subprocess.check_output([
+                    "ffmpeg", "-y",
+                    "-ss", "%d" % starttime,
+                    '-t', "%d" % nseconds,
+                    "-i", videosource,
+                    "-max_muxing_queue_size", "400",
+                    test_file_name])
+            else:
+                log_msg("Warning: Skip this step because the length ({}) of the video is too short !".format(length))
 
 
 def log_msg(msg, log=True, silent=False):
@@ -316,7 +337,7 @@ class DejavuTest(object):
                         self.result_match_confidence[line][col] = 0
                     else:
                         log_msg('correct match')
-                        print self.result_match
+                        print("result_match: {}".format(self.result_match))
                         self.result_match[line][col] = 'yes'
                         self.result_query_duration[line][col] = round(result[Dejavu.MATCH_TIME], 3)
                         self.result_match_confidence[line][col] = result[Dejavu.CONFIDENCE]
