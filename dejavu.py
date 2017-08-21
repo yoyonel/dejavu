@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    if not args.fingerprint and not args.recognize and not args.doublon:
+    if not args.fingerprint and not args.recognize and not args.doublon and not args.empty_database:
         parser.print_help()
         sys.exit(0)
 
@@ -72,8 +72,10 @@ if __name__ == '__main__':
         # print "Using default config file: %s" % (config_file)
 
     djv = init(config_file)
+
     if args.empty_database:
         djv.db.empty()
+
     if args.fingerprint:
         # Fingerprint all files in a directory
         if len(args.fingerprint) == 2:
