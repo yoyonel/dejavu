@@ -1,6 +1,8 @@
 import dejavu.fingerprint as fingerprint
 import dejavu.decoder as decoder
+import inotify.adapters
 import numpy as np
+import os
 import pyaudio
 import time
 from dejavu import _is_audio_media, _is_video_media
@@ -16,7 +18,7 @@ class BaseRecognizer(object):
         matches = []
         for d in data:
             matches.extend(self.dejavu.find_matches(d, Fs=self.Fs))
-        return self.dejavu.align_matches(matches)
+        return self.dejavu.align_matches(iter(matches))
 
     def _recognize_for_video(self, data, **kargs):
         # logger.debug("_recognize_for_video")
@@ -79,6 +81,50 @@ class FileRecognizer(BaseRecognizer):
         return self.recognize_file(filename, **kwoptions)
 
 
+class StreamRecognizer(BaseRecognizer):
+    def __init__(self, dejavu):
+        super(StreamRecognizer, self).__init__(dejavu)
+        self._dejavu = dejavu
+
+    def recognize_stream_on_directory(self, directory, **kwargs):
+        #
+        directory_to_watch = directory
+        i = inotify.adapters.Inotify()
+
+        logger.debug("add watch on: {}".format(directory_to_watch))
+        i.add_watch(directory_to_watch)
+
+        try:
+            for event in i.event_gen():
+                if event is not None:
+                    (header, type_names, watch_path, filename) = event
+                    if type_names == ['IN_CLOSE_WRITE']:
+                        logger.debug("WD=(%d) MASK=(%d) COOKIE=(%d) LEN=(%d) MASK->NAMES=%s "
+                                    "WATCH-PATH=[%s] FILENAME=[%s]",
+                                    header.wd, header.mask, header.cookie, header.len, type_names,
+                                    watch_path.decode('utf-8'), filename.decode('utf-8'))
+                        #
+                        media_filepath = os.path.join(watch_path.decode('utf-8'), filename.decode('utf-8'))
+                        #
+                        t = time.time()
+                        logger.debug("media_filepath: {}".format(media_filepath))
+                        song = self._dejavu.recognize(FileRecognizer, media_filepath, threshold_matches=1.0)
+                        t = time.time() - t
+                        if song:
+                            song['match_time'] = t
+                        #
+                        print(song)
+        except KeyboardInterrupt:
+            logger.warning("Keyboard interruption!")
+        finally:
+            i.remove_watch(directory_to_watch)
+            logger.debug("watch on: {} removed".format(directory_to_watch))
+        return ""
+
+    def recognize(self, directory, **kwoptions):
+        return self.recognize_stream_on_directory(directory, **kwoptions)
+
+
 class MicrophoneRecognizer(BaseRecognizer):
     default_chunksize = 8192
     default_format = pyaudio.paInt16
@@ -115,7 +161,7 @@ class MicrophoneRecognizer(BaseRecognizer):
             frames_per_buffer=chunksize,
         )
 
-        self.data = [[] for i in range(channels)]
+        self.data = [[] for _ in xrange(channels)]
 
     def process_recording(self):
         data = self.stream.read(self.chunksize)

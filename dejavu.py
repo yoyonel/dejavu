@@ -9,6 +9,7 @@ from pprint import pformat
 
 from dejavu import Dejavu
 from dejavu.recognize import DoublonRecognizer
+from dejavu.recognize import StreamRecognizer
 from dejavu.recognize import FileRecognizer
 from dejavu.recognize import MicrophoneRecognizer
 from dejavu.logger import logger
@@ -101,6 +102,8 @@ if __name__ == '__main__':
             song = djv.recognize(MicrophoneRecognizer, seconds=opt_arg)
         elif source == 'file':
             song = djv.recognize(FileRecognizer, opt_arg, threshold_matches=1.0)
+        elif source == 'stream_on_directory':
+            song = djv.recognize(StreamRecognizer, opt_arg)
         print(song)
 
     elif args.doublon:
